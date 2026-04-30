@@ -1,0 +1,78 @@
+﻿name: cipherchat
+description: "Encrypted chat MVP built with Flutter and Supabase."
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  app_links: ^7.0.0
+  connectivity_plus: ^6.1.5
+  cryptography: ^2.9.0
+  cryptography_flutter: ^2.3.4
+  cupertino_icons: ^1.0.8
+  encrypt: ^5.0.3
+  file_picker: ^10.3.10
+  flutter_image_compress: ^2.4.0
+  flutter_linkify: ^6.0.0
+  flutter_local_notifications: ^19.4.2
+  flutter_riverpod: ^3.3.1
+  flutter_secure_storage: ^10.0.0
+  flutter_webrtc: ^1.3.1
+  go_router: ^17.1.0
+  image_picker: ^1.2.1
+  intl: ^0.20.2
+  just_audio: ^0.10.5
+  metadata_fetch: ^0.4.2
+  mime: ^2.0.0
+  open_filex: ^4.7.0
+  path: ^1.9.1
+  path_provider: ^2.1.5
+  receive_sharing_intent: ^1.8.1
+  record: ^6.2.0
+  shared_preferences: ^2.3.2
+  supabase_flutter: ^2.12.0
+  url_launcher: ^6.3.1
+  uuid: ^4.5.1
+  video_compress: ^3.1.4
+  video_player: ^2.11.1
+  ffmpeg_kit_flutter_new: ^4.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.0
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/cipherchat_app.png"
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/icon/cipherchat_app.png"
+
+flutter_native_splash:
+  color: "#000000"
+  image: assets/icon/cipherchat_app.png
+
+  android_12:
+    image: assets/icon/cipherchat_app.png
+    icon_background_color: "#000000"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon/app_icon.png
+    - assets/icon/cipherchat_app.png
+    - assets/avatars/avatar_1.png
+    - assets/avatars/avatar_2.png
+    - assets/avatars/avatar_3.png
+    - assets/avatars/avatar_4.png
+    - assets/avatars/avatar_5.png
+    - assets/avatars/avatar_6.png
+    - assets/avatars/avatar_7.png
+    - assets/avatars/avatar_8.png

@@ -1,0 +1,250 @@
+CipherChat Deep Technical Audit
+Date: 2026-04-28
+Scope: Flutter app code, Supabase schema/migrations, startup path, data access, core chat/call/game flows.
+
+1. App Summary
+
+CipherChat is a Flutter mobile/web/desktop chat application backed by Supabase. It supports anonymous and email auth, user profiles, direct and group chats, encrypted message payloads, attachments, stickers, realtime updates, local cached chat previews, sharing intents, WebRTC calls, and a realtime Connect-Four-style game named GRID BREACH.
+
+High-level architecture:
+- Frontend: Flutter, Riverpod state management, GoRouter routing.
+- Backend/service layer: Supabase Auth, PostgREST tables/RPCs, Supabase Realtime, Supabase Storage.
+- Local persistence: shared_preferences for app preferences, flutter_secure_storage for identity keys/hidden-message state, JSON files under application support for chat snapshots, message headers, pending outbox, and profile image cache.
+- Security model: client-side encrypted message payloads and encrypted media blobs; Supabase RLS and SECURITY DEFINER RPCs guard row access and server-side operations.
+
+Key dependencies:
+- supabase_flutter, flutter_riverpod, go_router, app_links, receive_sharing_intent.
+- cryptography/cryptography_flutter, flutter_secure_storage.
+- flutter_webrtc for calls.
+- video_compress, video_player, ffmpeg_kit_flutter_new, flutter_image_compress for media/stickers.
+- flutter_local_notifications, connectivity_plus, file_picker, image_picker, record, just_audio.
+
+Startup and main flow:
+1. lib/main.dart starts Flutter immediately, schedules startup after the first frame.
+2. lib/core/startup/app_startup.dart reads local theme preferences, loads .env, initializes Supabase.
+3. AuthGateScreen watches AuthController; if startup/auth/profile is unresolved it keeps showing AuthGateSkeleton.
+4. AuthController loads cached profile if available, then fetches the Supabase profile.
+5. Authenticated users land in ChatListScreen.
+6. Chat list loads local cache, then fetches remote chats, unread counts, members, profile visibility, latest messages, and opens realtime channels.
+7. Opening a chat starts MessageController, hydrates cached message headers, subscribes to realtime, fetches a message page, decrypts messages, and syncs receipts.
+
+2. Performance Analysis: 8-second Startup/Splash
+
+Finding P1 - Chat list startup has an N+1 query pattern with multiple round trips per chat.
+Location: lib/features/chat/data/repositories/chat_repository.dart:48, 116, 172, 1095.
+Details:
+- fetchChats first queries chat_members for chat IDs, then chats, then unread counts.
+- For every chat, _buildChat calls fetchChatMembers.
+- fetchChatMembers then calls get_visible_profiles_by_ids.
+- _buildChat then calls fetchLatestMessage.
+Impact: High. For N chats, startup chat hydration is approximately 3 base requests + 2N requests. With 20 chats this can reach ~43 network/RLS/RPC round trips before the remote chat list is fully hydrated. This is the strongest code-level explanation for a long skeleton/splash after auth.
+Fix: Replace fetchChats/_buildChat fan-out with one server RPC such as get_chat_inbox(p_user_id) that returns chat row, members, visible member profiles, latest message, and unread_count in one database call. Keep the local cache as the immediate UI, then reconcile with one inbox response.
+
+Finding P1 - Per-chat realtime channels are opened for every chat in the list.
+Location: lib/features/chat/presentation/providers/chat_provider.dart:565-589; lib/core/services/realtime_service.dart:14-87.
+Details:
+- _syncSubscriptions creates message, receipt, and typing channels for every chat in the list.
+- Each chat gets at least two Postgres realtime channels plus one broadcast/presence typing channel.
+Impact: High for users with many chats. This amplifies startup work after chat list load and adds websocket subscription cost proportional to chat count.
+Fix: Subscribe to a single user-scoped inbox channel for chat-list previews/unread changes, or defer per-chat message/receipt subscriptions until the chat is opened. Keep typing channels only for the active chat.
+
+Finding P2 - Auth gate waits for remote profile fetch when no cached profile exists.
+Location: lib/features/auth/presentation/screens/auth_gate_screen.dart:131-134; lib/features/auth/presentation/providers/auth_provider.dart:171-236.
+Details:
+- AuthGateScreen keeps showing AuthGateSkeleton while isSessionLoading/isInitializing and profile == null.
+- AuthController fetches cached profile first, then awaits repository.fetchProfile(session.user.id).
+Impact: Medium to high. A first install, cleared cache, or cache miss cannot reach ChatListScreen until a network profile query returns. If Supabase/Auth session recovery is slow, the app visually remains in the splash/skeleton path.
+Fix: Allow ChatListScreen to mount once a session exists and show a profile-loading state in-app, or persist a minimal profile/session bootstrap record. Keep profile refresh async.
+
+Finding P2 - Supabase initialization is on the visual gate path.
+Location: lib/core/startup/app_startup.dart:26-49; lib/main.dart:88-96.
+Details:
+- Initialization is deferred until after first frame, which helps native first paint, but AuthGateScreen still shows a skeleton until dotenv/preferences and Supabase.initialize complete.
+- Supabase.initialize is awaited after local preference/.env reads.
+Impact: Medium. This is not the only 8-second cause, but it contributes directly to time spent on AuthGateSkeleton.
+Fix: Move production Supabase URL/anon key to --dart-define and avoid loading .env in release builds. Read theme preferences independently and let the app route show a non-blocking auth-loading state.
+
+Finding P2 - Heavy media packages increase cold-start/binary load risk.
+Location: pubspec.yaml:17-43.
+Details:
+- The app includes ffmpeg_kit_flutter_new, flutter_webrtc, video_compress, video_player, just_audio, record, file_picker, and image_picker in the main app bundle.
+Impact: Medium. This does not prove an 8-second delay by itself, but these native libraries increase app size and plugin registration work. FFmpeg is especially large and only needed for sticker creation.
+Fix: Measure release APK/AAB with flutter build apk --analyze-size. Consider deferring FFmpeg-dependent sticker flows into a separate feature module where platform support allows, or replacing FFmpeg for the narrow WebP conversion path.
+
+Finding P3 - Pending outbox sync is scheduled at startup.
+Location: lib/main.dart:134-140; lib/features/chat/application/services/pending_outgoing_message_sync_service.dart:66-94.
+Details:
+- After appStartupController.isReady, syncAllPendingMessages checks connectivity, reads pending JSON, and sends pending records sequentially.
+- It is unawaited, so it should not block routing directly, but it competes for network/CPU/IO during the same early window.
+Impact: Low to medium depending on outbox size and attachment compression/upload. It can make startup feel busy even when not blocking the first route.
+Fix: Delay outbox sync until after ChatListScreen first render, and skip attachment sends until the app is idle/online.
+
+3. Database and SQL Audit
+
+Vulnerability V1 - .env with live Supabase URL/anon key is committed and packaged as an app asset.
+Location: .env:1-2; pubspec.yaml:80.
+Details:
+- .env contains a real Supabase project URL and anon key.
+- pubspec.yaml includes ".env" under Flutter assets, so the file is bundled into builds.
+Impact: Medium. Supabase anon keys are client-side keys, not service-role secrets, but committing and packaging live config increases environment coupling and makes accidental production exposure likely. Any RLS weakness becomes directly exploitable with the bundled key.
+Fix: Remove .env from Flutter assets, rotate the anon key if this repo/build was shared publicly, and provide SUPABASE_URL/SUPABASE_ANON_KEY via --dart-define or CI environment. Keep only .env.example in source control.
+
+Vulnerability V2 - Private sticker metadata and objects are effectively public.
+Location: supabase/cipherchat_schema.sql:98-124, 1733-1738, 2044-2048; lib/features/chat/data/repositories/sticker_repository.dart:173-216.
+Details:
+- stickers has user_id and is_public, implying private/user-owned stickers exist.
+- RLS policy stickers_select_public_or_owner uses (true) for anon and authenticated users.
+- Storage bucket stickers is public and storage policy stickers_select_public allows public reads for the entire bucket.
+- createSticker defaults isPublic=false, but uploaded object paths are still public URLs via getPublicUrl.
+Impact: High if private stickers are expected. Any user or anonymous caller can enumerate sticker metadata and fetch private sticker media if they know paths.
+Fix: Change table policy to using (is_public = true OR user_id = auth.uid() OR exists in user_stickers for auth.uid()). Make stickers bucket private, expose public stickers through signed URLs or a public/system prefix only, and update StickerRepository to use signed URLs for private stickers.
+
+Vulnerability V3 - Canonical schema allows all authenticated users to read group images; latest migration fixes it but deployment state is uncertain.
+Location: supabase/cipherchat_schema.sql:1996-2000; supabase/migrations/20260414_preproduction_hardening.sql:9-19.
+Details:
+- Canonical schema policy group_images_select_authenticated allows any authenticated user to read any group image.
+- Migration 20260414_preproduction_hardening drops it and creates group_images_select_members_only.
+Impact: Medium. If the latest migration is not applied in production or a new project is bootstrapped from only cipherchat_schema.sql, group images leak to all logged-in users.
+Fix: Update canonical schema to match the hardening migration and verify production policy with Supabase SQL.
+
+Performance issue D1 - Missing consolidated inbox query.
+Location: lib/features/chat/data/repositories/chat_repository.dart:48-78, 1095-1114.
+Details:
+- The schema has useful indexes: chat_members(user_id), messages(chat_id, created_at desc), message_receipts(user_id, chat_id) where unread. The app does not use a single SQL plan to exploit them.
+Impact: High. Network round trips, not missing indexes, are the main database performance issue.
+Fix: Add an RPC/view that joins memberships, chats, latest message via lateral join, unread count via grouped receipts, and member/profile summaries.
+
+Performance issue D2 - Discoverable groups over-fetch all groups and then hydrates each group.
+Location: lib/features/chat/data/repositories/chat_repository.dart:82-99.
+Details:
+- fetchDiscoverableGroups selects all group chats ordered by created_at and then _buildChat hydrates members/latest messages for each.
+Impact: Medium to high as public groups grow.
+Fix: Add pagination/limit and a lightweight discover_groups RPC that returns only public group summary, member count, current-user membership/request state, and no latest message unless needed.
+
+Performance issue D3 - Message page fetch over-fetches all receipt fields for every message.
+Location: lib/features/chat/data/repositories/chat_repository.dart:198-212.
+Details:
+- fetchMessages selects "*, message_receipts(*)" for each page.
+- For large groups, receipt rows grow with member count.
+Impact: Medium. A page of 30 messages in a group of 100 members can hydrate up to 3,000 receipt rows.
+Fix: Fetch receipts relevant to the current user plus aggregate delivery/read state for sender views. For group read details, lazy-load full receipts only when the message detail UI needs them.
+
+4. Bug Detection
+
+Bug B1 - Cached GRID BREACH messages restore as text messages.
+Location: lib/core/services/local_chat_cache_service.dart:398-413.
+Why: _messageKindFromValue handles image/video/file/audio/sticker/text but not grid_breach, so cached grid_breach headers fall through to text.
+Scenario: User receives or sends a GRID BREACH invite, restarts/offlines before live fetch resolves, and the cached invite appears as a normal text-like item instead of the game invite state.
+Fix: Add case 'grid_breach': return MessageKind.grid_breach.
+
+Bug B2 - Pending GRID BREACH records cannot sync.
+Location: lib/features/chat/application/services/pending_outgoing_message_sync_service.dart:172-176.
+Why: MessageKind.grid_breach throws UnimplementedError in pending outbox sync.
+Scenario: If a grid invite is ever added to pending outbox by future retry/offline code, syncAllPendingMessages will keep returning no progress because the error is neither network-related nor classified permanent.
+Fix: Implement sendGridBreachInvite for pending records or prevent grid_breach from entering the pending outbox with an explicit permanent drop.
+
+Bug B3 - Direct chat delete flow conflicts with hardened database behavior.
+Location: lib/features/chat/data/repositories/chat_repository.dart:580-592; supabase/migrations/20260414_preproduction_hardening.sql:47-84.
+Why: ChatRepository.deleteChat calls delete_chat for any chat unless it is a group and the user is not admin. The hardened RPC rejects direct chats with "Direct chats cannot be hard-deleted." There is a chat_user_state table for per-user hiding, but the Flutter repository does not use it.
+Scenario: User selects a direct chat for deletion from the chat list; UI attempts a hard delete and receives an RPC exception instead of archiving/hiding the chat.
+Fix: Split group delete and direct-chat hide/archive. For direct chats, upsert chat_user_state.hidden_at/archived_at for the current user and filter hidden chats in the inbox RPC.
+
+Bug B4 - Call/channel disposal starts async cleanup without tracking completion.
+Location: lib/features/call/presentation/providers/call_provider.dart:90-96, 438-448.
+Why: disposeChannel returns Future<void>, but dispose calls it without await/unawaited. dispose cannot await, but the futures are currently fire-and-forget without error handling.
+Scenario: Rapid call screen open/close or auth changes may leave realtime channels alive longer than intended or drop cleanup errors silently.
+Fix: Wrap with unawaited(...catchError(...)) or centralize channel lifecycle in a service that owns cleanup outside widget/provider dispose.
+
+Bug B5 - Notification handler issues three queries per message insert.
+Location: lib/main.dart:306-321, 341-361.
+Why: The global incoming-message channel invokes _showIncomingMessageNotification for each incoming message, then queries current profile settings, sender profile RPC, and chat metadata.
+Scenario: In active group chats, a burst of messages causes repeated per-message query fan-out for notification decisions.
+Fix: Cache current notification settings in AuthController/profile state, cache sender/chat labels, and use a lightweight notification payload query/RPC only on cache miss.
+
+5. Future Risks
+
+Risk R1 - Chat list will not scale past modest chat counts.
+Cause: N+1 chat hydration plus 3 realtime channels per chat.
+Break point: More chats or larger groups will increase startup time almost linearly.
+
+Risk R2 - Receipt storage and reads grow as messages x members.
+Cause: seed_message_receipts creates receipt rows per member, and fetchMessages loads nested receipts.
+Break point: Large groups and long histories increase read volume and JSON payload size.
+
+Risk R3 - Local JSON cache can become a performance bottleneck.
+Cause: LocalChatCacheService rewrites full chat_list.json and pending_outbox.json for updates.
+Break point: More chats/pending messages means repeated full-file JSON decode/encode/write on the UI isolate.
+
+Risk R4 - Canonical schema and migrations are drifting.
+Cause: cipherchat_schema.sql still contains group_images_select_authenticated while the latest migration hardens it.
+Break point: New environments created from canonical schema can miss production hardening.
+
+Risk R5 - Realtime table publication is broad.
+Cause: profiles, messages, receipts, calls, game tables are published; client creates many subscriptions.
+Break point: More users/data increases Realtime load and RLS evaluation cost.
+
+6. Prioritized Fix Plan
+
+Critical fixes:
+1. Fix sticker privacy.
+Problem: stickers_select_public_or_owner uses true and storage bucket is public.
+Improve: Restrict table RLS to public-or-owner/library, make private sticker storage non-public or prefix-scoped, and use signed URLs for private assets.
+Expected improvement: Closes private sticker metadata/media exposure.
+
+2. Remove packaged .env and rotate exposed config if needed.
+Problem: live Supabase URL/anon key is committed and bundled.
+Improve: Remove .env from pubspec assets, use dart-define/CI env, keep only .env.example.
+Expected improvement: Cleaner production config and reduced exposure blast radius.
+
+3. Replace chat-list N+1 hydration with a single inbox RPC.
+Problem: startup makes multiple requests per chat.
+Improve: Create get_chat_inbox RPC/view returning chat, members, latest message, unread count, preview metadata.
+Expected improvement: Turns O(N) network round trips into one request; likely largest startup improvement.
+
+High impact improvements:
+4. Defer chat-list realtime subscriptions.
+Problem: every chat opens message, receipt, and typing channels.
+Improve: Use one inbox-level subscription or subscribe only to active/open chats.
+Expected improvement: Lower websocket setup time, lower Realtime load, smoother startup.
+
+5. Let authenticated shell render before remote profile refresh.
+Problem: AuthGateSkeleton blocks on fetchProfile when no cache exists.
+Improve: Route after session exists; show profile/loading/error inside the app shell.
+Expected improvement: Reduces perceived splash time on cache misses and slow network.
+
+6. Implement direct chat archive/hide instead of hard delete.
+Problem: Flutter delete flow conflicts with hardened delete_chat RPC.
+Improve: Use chat_user_state.hidden_at/archived_at and filter hidden chats.
+Expected improvement: Direct chat deletion works and avoids destructive operations.
+
+Medium improvements:
+7. Reduce receipt over-fetching.
+Problem: fetchMessages loads all message_receipts for every message.
+Improve: Fetch current-user receipts by default, full receipt detail lazily.
+Expected improvement: Smaller message payloads and faster group chat loads.
+
+8. Fix cached grid_breach kind parsing and pending sync behavior.
+Problem: grid_breach falls through to text in cache and pending sync is unimplemented.
+Improve: Add grid_breach parser case and explicit pending sync support/drop handling.
+Expected improvement: Correct offline/restart behavior for game invites.
+
+9. Cache notification preference/profile/chat lookups.
+Problem: every incoming message notification performs three queries.
+Improve: Reuse current profile state and short-lived sender/chat metadata cache.
+Expected improvement: Lower query volume during message bursts.
+
+Optional optimizations:
+10. Audit native package/bundle size.
+Problem: media/WebRTC/FFmpeg packages increase cold-start risk.
+Improve: Run release size analysis and isolate/remove heavy unused features where possible.
+Expected improvement: Smaller binary and potentially faster cold start.
+
+11. Move local JSON cache to indexed storage.
+Problem: JSON file rewrites do not scale well.
+Improve: Use SQLite/Drift or a small key-value store for chat snapshots, headers, and outbox.
+Expected improvement: Faster local cache reads/writes as data grows.
+
+12. Add startup tracing.
+Problem: Exact 8-second distribution cannot be proven from source alone.
+Improve: Add TimelineTask/Stopwatch spans around Supabase.initialize, auth bootstrap, profile fetch, fetchChats, chat hydration, and channel subscription.
+Expected improvement: Confirms which source-level bottleneck dominates on real devices.
