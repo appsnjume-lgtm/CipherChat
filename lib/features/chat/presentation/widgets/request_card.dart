@@ -60,7 +60,8 @@ class RequestCard extends StatelessWidget {
 
   String _title() {
     if (request.isDirectRequest) {
-      return request.requestedByUser?.username ?? 'Private chat request';
+      return request.requestedByUser?.displayNameOrUsername ??
+          'Private chat request';
     }
 
     return request.chat?.titleFor(request.userId) ?? 'Group request';
@@ -68,7 +69,9 @@ class RequestCard extends StatelessWidget {
 
   String _description() {
     final requester =
-        request.user?.username ?? request.requestedByUser?.username ?? 'User';
+        request.user?.displayNameOrUsername ??
+        request.requestedByUser?.displayNameOrUsername ??
+        'User';
 
     if (request.isDirectRequest) {
       return '$requester wants to start a private chat with you.';

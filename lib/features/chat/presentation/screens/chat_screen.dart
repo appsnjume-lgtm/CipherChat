@@ -2221,7 +2221,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (!mounted) return;
       context.push('/chat/game/${match.id}');
     } catch (e) {
-      _showSnackBar('Failed to launch GRID BREACH: $e');
+      _showSnackBar(AppErrorHelper.messageFor(e));
     }
   }
 

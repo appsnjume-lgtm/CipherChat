@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../../../common/widgets/app_avatar.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/app_error_helper.dart';
 import '../../../auth/domain/entities/app_user.dart';
 import '../widgets/settings_widgets.dart';
 
 class AccountSection extends StatelessWidget {
   const AccountSection({
     super.key,
+    required this.formKey,
     required this.profile,
+    required this.displayNameController,
     required this.usernameController,
     required this.bioController,
     required this.selectedGender,
@@ -21,7 +24,9 @@ class AccountSection extends StatelessWidget {
     required this.onSave,
   });
 
+  final GlobalKey<FormState> formKey;
   final AppUser profile;
+  final TextEditingController displayNameController;
   final TextEditingController usernameController;
   final TextEditingController bioController;
   final AppGender selectedGender;
@@ -37,7 +42,6 @@ class AccountSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final isGX = GXThemeExtension.of(context).isGX;
     final accent = GXThemeExtension.of(context).accent;
-    final theme = Theme.of(context);
 
     return SettingsSectionCard(
       child: Column(
@@ -52,7 +56,9 @@ class AccountSection extends StatelessWidget {
           ),
           Padding(
             padding: EdgeInsets.all(isGX ? 16 : 0),
-            child: Column(
+            child: Form(
+              key: formKey,
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (!isGX) const SizedBox(height: 14),
@@ -138,7 +144,7 @@ class AccountSection extends StatelessWidget {
 
                 // ── Username ────────────────────────────────────────────
                 TextField(
-                  controller: usernameController,
+                  controller: displayNameController,
                   textInputAction: TextInputAction.next,
                   style: isGX
                       ? const TextStyle(
@@ -148,7 +154,30 @@ class AccountSection extends StatelessWidget {
                         )
                       : null,
                   decoration: InputDecoration(
+                    labelText: isGX ? 'DISPLAY NAME' : 'Display name',
+                    prefixIcon: isGX
+                        ? Icon(Icons.badge_outlined, color: accent, size: 16)
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                TextFormField(
+                  controller: usernameController,
+                  textInputAction: TextInputAction.next,
+                  validator: AppErrorHelper.usernameValidationMessage,
+                  style: isGX
+                      ? const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                          color: Color(0xFFF0F0F8),
+                        )
+                      : null,
+                  decoration: InputDecoration(
                     labelText: isGX ? 'USERNAME' : 'Username',
+                    helperText: isGX
+                        ? null
+                        : 'Use lowercase letters, numbers, dots, and underscores.',
                     prefixIcon: isGX
                         ? Icon(
                             Icons.alternate_email_rounded,
@@ -217,6 +246,7 @@ class AccountSection extends StatelessWidget {
                   onSave: onSave,
                 ),
               ],
+              ),
             ),
           ),
         ],

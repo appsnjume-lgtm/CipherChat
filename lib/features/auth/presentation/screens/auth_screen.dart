@@ -101,22 +101,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary,
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                      child: Text(
-                        authState.needsProfileSetup
-                            ? 'Finish your profile to enter the encrypted chat workspace.'
-                            : 'Real-time 1v1 and group chat with local AES encryption, invites, requests, and Supabase sync.',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          color: theme.colorScheme.onPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 20),
                     if (authState.errorMessage != null) ...[
                       AppErrorCard(

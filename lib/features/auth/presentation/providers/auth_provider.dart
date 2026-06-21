@@ -543,6 +543,7 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> updateProfile({
     String? username,
+    String? displayName,
     AppGender? gender,
     String? avatarId,
     String? profileImageUrl,
@@ -569,12 +570,24 @@ class AuthController extends StateNotifier<AuthState> {
       return;
     }
 
+    final usernameError = username == null
+        ? null
+        : AppErrorHelper.usernameValidationMessage(username);
+    if (usernameError != null) {
+      state = state.copyWith(
+        isProfileLoading: false,
+        errorMessage: usernameError,
+      );
+      return;
+    }
+
     state = state.copyWith(isProfileLoading: true, errorMessage: null);
 
     try {
       final profile = await repository.updateProfile(
         userId: session.user.id,
         username: username,
+        displayName: displayName,
         gender: gender,
         avatarId: avatarId,
         profileImageUrl: profileImageUrl,

@@ -676,10 +676,6 @@ class MessageController extends StateNotifier<MessageState> {
       _ref.invalidate(chatListProvider);
       _ref.invalidate(chatDetailsProvider(_chatId));
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      state = state.copyWith(errorMessage: AppErrorHelper.messageFor(error));
       rethrow;
     }
   }

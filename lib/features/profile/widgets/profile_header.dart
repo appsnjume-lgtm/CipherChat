@@ -5,6 +5,7 @@ import '../../../common/widgets/app_avatar.dart';
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
     super.key,
+    required this.displayName,
     required this.username,
     required this.statusLabel,
     required this.imageUrl,
@@ -14,6 +15,7 @@ class ProfileHeader extends StatelessWidget {
     this.isOnline = false,
   });
 
+  final String displayName;
   final String username;
   final String statusLabel;
   final String? imageUrl;
@@ -40,11 +42,19 @@ class ProfileHeader extends StatelessWidget {
         ),
         const SizedBox(height: 18),
         Text(
-          username,
+          displayName,
           textAlign: TextAlign.center,
           style: Theme.of(
             context,
           ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '@$username',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 8),
         Text(

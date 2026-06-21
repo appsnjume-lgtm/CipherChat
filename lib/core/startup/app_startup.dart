@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/legacy.dart' as legacy;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/settings/presentation/providers/settings_provider.dart';
@@ -8,6 +9,8 @@ import '../constants/app_constants.dart';
 import '../services/local_app_preferences_service.dart';
 
 final appStartupController = AppStartupController();
+
+final appStartupProvider = legacy.ChangeNotifierProvider<AppStartupController>((ref) => appStartupController);
 
 class StartupTrace {
   const StartupTrace._();
@@ -46,12 +49,14 @@ class AppStartupController extends ChangeNotifier {
   bool _hasResolved = false;
   bool _isInitializing = false;
   bool _isSupabaseInitialized = false;
+  bool _onboardingCompleted = false;
   Object? _fatalError;
 
   ThemeSettings get themeSettings => _themeSettings;
   bool get hasResolved => _hasResolved;
   bool get isReady => _hasResolved && _fatalError == null;
   bool get isSupabaseInitialized => _isSupabaseInitialized;
+  bool get onboardingCompleted => _onboardingCompleted;
   Object? get fatalError => _fatalError;
 
   Future<void> initialize() async {
@@ -62,12 +67,17 @@ class AppStartupController extends ChangeNotifier {
     _isInitializing = true;
 
     try {
-      final results = await Future.wait<Object?>([_readInitialThemeSettings()]);
+      final results = await Future.wait<Object?>([
+        _readInitialThemeSettings(),
+        LocalAppPreferencesService.instance.isOnboardingCompleted(),
+      ]);
 
-      final themeSettings = results.first as ThemeSettings?;
+      final themeSettings = results[0] as ThemeSettings?;
       if (themeSettings != null) {
         _themeSettings = themeSettings;
       }
+
+      _onboardingCompleted = results[1] as bool? ?? false;
 
       await StartupTrace.async(
         'runtime config read',
@@ -111,5 +121,11 @@ class AppStartupController extends ChangeNotifier {
       // A preferences read failure should not block app startup.
       return null;
     }
+  }
+
+  Future<void> completeOnboarding() async {
+    await LocalAppPreferencesService.instance.setOnboardingCompleted();
+    _onboardingCompleted = true;
+    notifyListeners();
   }
 }

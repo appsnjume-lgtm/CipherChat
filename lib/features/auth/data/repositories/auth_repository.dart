@@ -13,6 +13,8 @@ import '../models/profile_model.dart';
 class AuthRepository {
   AuthRepository(this._client, this._localProfileCache);
 
+  static final RegExp _usernamePattern = RegExp(r'^[a-z0-9._]+$');
+
   final SupabaseClient _client;
   final LocalProfileCacheService _localProfileCache;
 
@@ -95,6 +97,7 @@ class AuthRepository {
     required AppGender gender,
     String? avatarId,
   }) async {
+    final normalizedUsername = _normalizeUsername(username);
     final resolvedAvatarId = avatarId == null || avatarId.trim().isEmpty
         ? gender.defaultAvatarId
         : avatarId.trim();
@@ -102,7 +105,8 @@ class AuthRepository {
         .from('profiles')
         .upsert({
           'id': userId,
-          'username': username.trim(),
+          'username': normalizedUsername,
+          'display_name': normalizedUsername,
           'gender': gender.storageValue,
           'avatar_id': resolvedAvatarId,
           'is_online': true,
@@ -128,11 +132,12 @@ class AuthRepository {
 
   Future<bool> isUsernameAvailable(String username) async {
     if (username.trim().isEmpty) return false;
+    final normalizedUsername = username.trim().toLowerCase();
 
     final data = await _client
         .from('profiles')
         .select('id')
-        .eq('username', username.trim())
+        .eq('username', normalizedUsername)
         .maybeSingle();
 
     return data == null;
@@ -141,6 +146,7 @@ class AuthRepository {
   Future<AppUser> updateProfile({
     required String userId,
     String? username,
+    String? displayName,
     AppGender? gender,
     String? avatarId,
     String? profileImageUrl,
@@ -164,7 +170,10 @@ class AuthRepository {
     final updates = <String, dynamic>{};
 
     if (username != null) {
-      updates['username'] = username.trim();
+      updates['username'] = _normalizeUsername(username);
+    }
+    if (displayName != null) {
+      updates['display_name'] = displayName;
     }
     if (gender != null) {
       updates['gender'] = gender.storageValue;
@@ -341,6 +350,22 @@ class AuthRepository {
 
   String generateAnonymousUsername(String userId) {
     return 'user_${userId.replaceAll('-', '').substring(0, 8)}';
+  }
+
+  String _normalizeUsername(String username) {
+    final trimmed = username.trim();
+    final normalized = trimmed.toLowerCase();
+    if (trimmed.isEmpty ||
+        trimmed.length < 3 ||
+        trimmed.length > 24 ||
+        trimmed != username ||
+        trimmed != normalized ||
+        !_usernamePattern.hasMatch(trimmed)) {
+      throw ArgumentError(
+        'Username must be 3-24 lowercase letters, numbers, dots, or underscores.',
+      );
+    }
+    return normalized;
   }
 
   Future<Uint8List> _compressProfileImage(String sourcePath) async {

@@ -1,6 +1,7 @@
 ﻿import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../../core/services/chat_background_storage_service.dart';
+import '../../../../core/utils/app_error_helper.dart';
 import '../../domain/entities/chat_background_config.dart';
 
 final chatBackgroundProvider = StateNotifierProvider.autoDispose
@@ -101,7 +102,10 @@ class ChatBackgroundController extends StateNotifier<ChatBackgroundState> {
         clearError: true,
       );
     } catch (error) {
-      state = state.copyWith(isLoading: false, errorMessage: error.toString());
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: AppErrorHelper.messageFor(error),
+      );
     }
   }
 
@@ -143,7 +147,10 @@ class ChatBackgroundController extends StateNotifier<ChatBackgroundState> {
         clearError: true,
       );
     } catch (error) {
-      state = state.copyWith(isSaving: false, errorMessage: error.toString());
+      state = state.copyWith(
+        isSaving: false,
+        errorMessage: AppErrorHelper.messageFor(error),
+      );
       rethrow;
     }
   }
@@ -161,7 +168,10 @@ class ChatBackgroundController extends StateNotifier<ChatBackgroundState> {
         clearError: true,
       );
     } catch (error) {
-      state = state.copyWith(isSaving: false, errorMessage: error.toString());
+      state = state.copyWith(
+        isSaving: false,
+        errorMessage: AppErrorHelper.messageFor(error),
+      );
       rethrow;
     }
   }
@@ -189,7 +199,10 @@ class ChatBackgroundController extends StateNotifier<ChatBackgroundState> {
         clearError: true,
       );
     } catch (error) {
-      state = state.copyWith(isSaving: false, errorMessage: error.toString());
+      state = state.copyWith(
+        isSaving: false,
+        errorMessage: AppErrorHelper.messageFor(error),
+      );
       rethrow;
     }
   }

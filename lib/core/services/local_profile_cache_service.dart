@@ -188,6 +188,7 @@ class LocalProfileCacheService {
     return {
       'id': user.id,
       'username': user.username,
+      'display_name': user.displayName,
       'gender': user.gender.storageValue,
       'avatar_id': user.avatarId,
       'profile_image_url': user.profileImageUrl,

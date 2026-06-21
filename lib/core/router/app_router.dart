@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/startup/app_startup.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/auth_gate_screen.dart';
 import '../../features/auth/presentation/screens/password_recovery_screen.dart';
@@ -12,6 +13,7 @@ import '../../features/chat/presentation/screens/chat_screen.dart';
 import '../../features/chat/presentation/screens/group_info_screen.dart';
 import '../../features/chat/presentation/screens/invites_screen.dart';
 import '../../features/chat/presentation/screens/user_search_screen.dart';
+import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/profile/contact_profile_screen.dart';
 import '../../features/settings/presentation/screens/privacy_policy_screen.dart';
 import '../../features/settings/presentation/screens/profile_settings_screen.dart';
@@ -24,7 +26,10 @@ import '../../features/share/share_preview_screen.dart';
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 bool _isPublicPath(String path) {
-  return path == '/' || path == '/auth/recovery' || path == '/settings/privacy';
+  return path == '/' ||
+      path == '/onboarding' ||
+      path == '/auth/recovery' ||
+      path == '/settings/privacy';
 }
 
 final appRouterProvider = Provider.family<GoRouter, bool>((ref, isAuthReady) {
@@ -34,8 +39,13 @@ final appRouterProvider = Provider.family<GoRouter, bool>((ref, isAuthReady) {
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
+    refreshListenable: appStartupController,
     routes: [
       GoRoute(path: '/', builder: (context, state) => const AuthGateScreen()),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
+      ),
       GoRoute(
         path: '/auth/recovery',
         builder: (context, state) {
@@ -131,6 +141,14 @@ final appRouterProvider = Provider.family<GoRouter, bool>((ref, isAuthReady) {
     redirect: (context, state) {
       final path = state.uri.path;
       final isPublic = _isPublicPath(path);
+
+      if (!appStartupController.onboardingCompleted && path != '/onboarding') {
+        return '/onboarding';
+      }
+
+      if (appStartupController.onboardingCompleted && path == '/onboarding') {
+        return '/';
+      }
 
       if (!isAuthReady) {
         if (!isPublic) {

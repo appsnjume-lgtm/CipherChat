@@ -8,6 +8,7 @@ class ProfileModel extends AppUser {
     required super.gender,
     required super.avatarId,
     required super.createdAt,
+    super.displayName,
     super.profileImageUrl,
     super.bio,
     super.genderVisibility,
@@ -48,6 +49,7 @@ class ProfileModel extends AppUser {
     return ProfileModel(
       id: map['id'] as String,
       username: map['username'] as String,
+      displayName: (map['display_name'] as String?) ?? map['username'] as String,
       gender: gender,
       avatarId: AppConstants.availableAvatarIds.contains(avatarId)
           ? avatarId
@@ -98,6 +100,7 @@ class ProfileModel extends AppUser {
     return {
       'id': id,
       'username': username,
+      'display_name': displayName,
       'gender': gender.storageValue,
       'avatar_id': avatarId,
       'profile_image_url': profileImageUrl,

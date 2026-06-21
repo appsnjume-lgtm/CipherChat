@@ -557,7 +557,7 @@ class _NormalMessageBubble extends StatelessWidget {
         Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: bubbleCrossAxisAlignment,
-          children: [interactiveChild, if (statusChip != null) statusChip],
+          children: [interactiveChild, ?statusChip],
         ),
       ],
     );
@@ -1018,7 +1018,7 @@ class _GXMessageBubble extends StatelessWidget {
         Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: crossAxis,
-          children: [interactiveChild, if (statusChip != null) statusChip],
+          children: [interactiveChild, ?statusChip],
         ),
       ],
     );

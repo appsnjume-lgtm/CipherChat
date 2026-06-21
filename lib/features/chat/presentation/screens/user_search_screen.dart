@@ -11,6 +11,8 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../profile/widgets/profile_image_modal.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
 import '../../data/repositories/chat_repository.dart';
+import '../../domain/entities/chat.dart';
+import '../../domain/entities/chat_member.dart';
 import '../providers/chat_provider.dart';
 
 class UserSearchScreen extends ConsumerStatefulWidget {
@@ -37,6 +39,16 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
   Widget build(BuildContext context) {
     final results = ref.watch(userSearchResultsProvider);
     final isInviteMode = widget.inviteChatId != null;
+    final currentUserId = ref.watch(currentUserIdProvider);
+    var existingGroupMemberIds = <String>{};
+
+    if (isInviteMode) {
+      final groupDetails = ref.watch(chatDetailsProvider(widget.inviteChatId!));
+      existingGroupMemberIds = groupDetails.maybeWhen(
+        data: (chat) => chat.members.map((member) => member.userId).toSet(),
+        orElse: () => <String>{},
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -58,6 +70,15 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
                 prefixIcon: const Icon(Icons.search_rounded),
               ),
             ),
+            if (isInviteMode && currentUserId != null) ...[
+              const SizedBox(height: 16),
+              _ExistingChatsInviteSection(
+                currentUserId: currentUserId,
+                existingGroupMemberIds: existingGroupMemberIds,
+                pendingUserId: _pendingUserId,
+                onInvite: (userId) => _handleTap(context, userId),
+              ),
+            ],
             const SizedBox(height: 16),
             Expanded(
               child: results.when(
@@ -99,7 +120,7 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
                               ),
                             ),
                           ),
-                          title: Text(user.username),
+                          title: Text(user.displayNameOrUsername),
                           subtitle: Text(_subtitleFor(user, isInviteMode)),
                           trailing: isBusy
                               ? const SizedBox(
@@ -165,11 +186,10 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
         : 'Public account';
     final bio = user.bio.trim();
 
-    if (isInviteMode) {
-      return bio.isEmpty ? privacy : '$privacy - $bio';
-    }
+    final handle = user.usernameHandle;
+    final detail = bio.isEmpty ? privacy : '$privacy - $bio';
 
-    return bio.isEmpty ? privacy : bio;
+    return isInviteMode ? '$handle - $detail' : '$handle - $detail';
   }
 
   Future<void> _blockUser(BuildContext context, AppUser user) async {
@@ -257,4 +277,161 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
       }
     }
   }
+}
+
+class _ExistingChatsInviteSection extends ConsumerWidget {
+  const _ExistingChatsInviteSection({
+    required this.currentUserId,
+    required this.existingGroupMemberIds,
+    required this.pendingUserId,
+    required this.onInvite,
+  });
+
+  final String currentUserId;
+  final Set<String> existingGroupMemberIds;
+  final String? pendingUserId;
+  final ValueChanged<String> onInvite;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chatListState = ref.watch(chatListControllerProvider);
+    final candidates = _inviteCandidates(
+      chats: chatListState.chats,
+      currentUserId: currentUserId,
+      existingGroupMemberIds: existingGroupMemberIds,
+    );
+
+    if (chatListState.isLoading && candidates.isEmpty) {
+      return const LinearProgressIndicator(minHeight: 2);
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.forum_outlined,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'From your chats',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (candidates.isEmpty)
+              Text(
+                'No one from your direct chats is available to invite.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              )
+            else
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 220),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: candidates.length,
+                  separatorBuilder: (_, index) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final candidate = candidates[index];
+                    final member = candidate.member;
+                    final isBusy = pendingUserId == member.userId;
+                    final username = member.displayNameOrUsername;
+                    final subtitle = member.bioPreview?.trim();
+
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: InkWell(
+                        onTap: () => ProfileImageModal.show(
+                          context,
+                          imageUrl: member.profileImageUrl,
+                          avatarId: member.avatarId,
+                          title: username,
+                          heroTag: 'invite-chat-user-${member.userId}',
+                        ),
+                        borderRadius: BorderRadius.circular(999),
+                        child: Hero(
+                          tag: 'invite-chat-user-${member.userId}',
+                          child: AppAvatar(
+                            size: 44,
+                            avatarId: member.avatarId,
+                            imageUrl: member.profileImageUrl,
+                            isOnline: member.isOnline,
+                          ),
+                        ),
+                      ),
+                      title: Text(
+                        username,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        subtitle == null || subtitle.isEmpty
+                            ? member.usernameHandle ?? candidate.chat.titleFor(currentUserId)
+                            : '${member.usernameHandle ?? candidate.chat.titleFor(currentUserId)} - $subtitle',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: isBusy
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : FilledButton(
+                              onPressed: () => onInvite(member.userId),
+                              child: const Text('Invite'),
+                            ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<_InviteCandidate> _inviteCandidates({
+    required List<Chat> chats,
+    required String currentUserId,
+    required Set<String> existingGroupMemberIds,
+  }) {
+    final candidatesByUserId = <String, _InviteCandidate>{};
+
+    for (final chat in chats) {
+      if (chat.isGroup) {
+        continue;
+      }
+
+      final member = chat.otherMemberFor(currentUserId);
+      if (member == null || existingGroupMemberIds.contains(member.userId)) {
+        continue;
+      }
+
+      candidatesByUserId.putIfAbsent(
+        member.userId,
+        () => _InviteCandidate(chat: chat, member: member),
+      );
+    }
+
+    return candidatesByUserId.values.toList(growable: false);
+  }
+}
+
+class _InviteCandidate {
+  const _InviteCandidate({required this.chat, required this.member});
+
+  final Chat chat;
+  final ChatMember member;
 }

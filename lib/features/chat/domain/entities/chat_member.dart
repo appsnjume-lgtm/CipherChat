@@ -6,6 +6,7 @@ class ChatMember {
     required this.role,
     required this.joinedAt,
     this.username,
+    this.displayName,
     this.avatarId,
     this.profileImageUrl,
     this.genderLabel,
@@ -20,6 +21,7 @@ class ChatMember {
   final String role;
   final DateTime joinedAt;
   final String? username;
+  final String? displayName;
   final String? avatarId;
   final String? profileImageUrl;
   final String? genderLabel;
@@ -29,8 +31,26 @@ class ChatMember {
 
   bool get isAdmin => role == 'admin';
 
+  String get displayNameOrUsername {
+    final trimmed = displayName?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) {
+      return trimmed;
+    }
+    final handle = username?.trim();
+    return handle == null || handle.isEmpty ? userId : handle;
+  }
+
+  String? get usernameHandle {
+    final handle = username?.trim();
+    if (handle == null || handle.isEmpty) {
+      return null;
+    }
+    return '@$handle';
+  }
+
   ChatMember copyWith({
     String? username,
+    String? displayName,
     String? avatarId,
     String? profileImageUrl,
     String? genderLabel,
@@ -45,6 +65,7 @@ class ChatMember {
       role: role,
       joinedAt: joinedAt,
       username: username ?? this.username,
+      displayName: displayName ?? this.displayName,
       avatarId: avatarId ?? this.avatarId,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       genderLabel: genderLabel ?? this.genderLabel,

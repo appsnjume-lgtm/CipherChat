@@ -24,6 +24,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  final _accountFormKey = GlobalKey<FormState>();
+  late final TextEditingController _displayNameController;
   late final TextEditingController _usernameController;
   late final TextEditingController _bioController;
   final ImagePicker _imagePicker = ImagePicker();
@@ -54,12 +56,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    _displayNameController = TextEditingController();
     _usernameController = TextEditingController();
     _bioController = TextEditingController();
   }
 
   @override
   void dispose() {
+    _displayNameController.dispose();
     _usernameController.dispose();
     _bioController.dispose();
     super.dispose();
@@ -85,10 +89,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           AccountSection(
+            formKey: _accountFormKey,
             profile: profile.copyWith(
               avatarId: _selectedAvatarId,
               gender: _selectedGender,
             ),
+            displayNameController: _displayNameController,
             usernameController: _usernameController,
             bioController: _bioController,
             selectedGender: _selectedGender,
@@ -192,6 +198,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _seedFromProfile(AppUser profile) {
     _didSeedProfile = true;
+    _displayNameController.text = profile.displayName;
     _usernameController.text = profile.username;
     _bioController.text = profile.bio;
     _selectedGender = profile.gender;
@@ -259,11 +266,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _saveAccountSection() async {
+    if (!(_accountFormKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
     setState(() => _isSavingAccount = true);
     await ref
         .read(authControllerProvider.notifier)
         .updateProfile(
-          username: _usernameController.text.trim(),
+          username: _usernameController.text,
+          displayName: _displayNameController.text,
           bio: _bioController.text.trim(),
           gender: _selectedGender,
           avatarId: _selectedAvatarId,

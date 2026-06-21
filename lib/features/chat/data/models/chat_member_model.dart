@@ -8,6 +8,7 @@ class ChatMemberModel extends ChatMember {
     required super.role,
     required super.joinedAt,
     super.username,
+    super.displayName,
     super.avatarId,
     super.profileImageUrl,
     super.genderLabel,
@@ -28,6 +29,7 @@ class ChatMemberModel extends ChatMember {
 
   ChatMemberModel withProfile({
     String? username,
+    String? displayName,
     String? avatarId,
     String? profileImageUrl,
     String? genderLabel,
@@ -42,6 +44,7 @@ class ChatMemberModel extends ChatMember {
       role: role,
       joinedAt: joinedAt,
       username: username ?? this.username,
+      displayName: displayName ?? this.displayName,
       avatarId: avatarId ?? this.avatarId,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       genderLabel: genderLabel ?? this.genderLabel,

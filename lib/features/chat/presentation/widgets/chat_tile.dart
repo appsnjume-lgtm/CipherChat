@@ -428,7 +428,7 @@ class _GXChatTile extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                            if (trailing != null) trailing!,
+                            ?trailing,
                           ],
                         ),
                       ],

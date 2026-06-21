@@ -301,6 +301,7 @@ class ChatRepository {
         .map(
           (member) => member.withProfile(
             username: profileMap[member.userId]?.username,
+            displayName: profileMap[member.userId]?.displayName,
             avatarId: profileMap[member.userId]?.avatarId,
             profileImageUrl: profileMap[member.userId]?.profileImageUrl,
             genderLabel: profileMap[member.userId]?.gender.label,
@@ -1405,6 +1406,7 @@ class ChatRepository {
     final profile = ProfileModel.fromMap(Map<String, dynamic>.from(profileRaw));
     return member.withProfile(
       username: profile.username,
+      displayName: profile.displayName,
       avatarId: profile.avatarId,
       profileImageUrl: profile.profileImageUrl,
       genderLabel: profile.gender.label,

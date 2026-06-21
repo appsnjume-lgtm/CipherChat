@@ -265,6 +265,7 @@ class AppUser {
     required this.gender,
     required this.avatarId,
     required this.createdAt,
+    String? displayName,
     this.profileImageUrl,
     this.bio = '',
     this.genderVisibility = AppVisibility.everyone,
@@ -284,10 +285,11 @@ class AppUser {
     this.isOnline = false,
     this.lastSeenAt,
     this.updatedAt,
-  });
+  }) : displayName = displayName ?? username;
 
   final String id;
   final String username;
+  final String displayName;
   final AppGender gender;
   final String avatarId;
   final String? profileImageUrl;
@@ -314,9 +316,17 @@ class AppUser {
   bool get hasCustomProfileImage =>
       profileImageUrl != null && profileImageUrl!.trim().isNotEmpty;
 
+  String get displayNameOrUsername {
+    final trimmed = displayName.trim();
+    return trimmed.isEmpty ? username : trimmed;
+  }
+
+  String get usernameHandle => '@$username';
+
   AppUser copyWith({
     String? id,
     String? username,
+    String? displayName,
     AppGender? gender,
     String? avatarId,
     String? profileImageUrl,
@@ -343,6 +353,7 @@ class AppUser {
     return AppUser(
       id: id ?? this.id,
       username: username ?? this.username,
+      displayName: displayName ?? this.displayName,
       gender: gender ?? this.gender,
       avatarId: avatarId ?? this.avatarId,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,

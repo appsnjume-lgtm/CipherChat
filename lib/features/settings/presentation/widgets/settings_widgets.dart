@@ -14,7 +14,6 @@ class SettingsSectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isGX = GXThemeExtension.of(context).isGX;
     final accent = GXThemeExtension.of(context).accent;
-    final theme = Theme.of(context);
 
     if (isGX) {
       return Container(
@@ -255,7 +254,6 @@ class SettingsDropdown<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final isGX = GXThemeExtension.of(context).isGX;
     final accent = GXThemeExtension.of(context).accent;
-    final theme = Theme.of(context);
 
     if (isGX) {
       return Container(
@@ -406,7 +404,6 @@ class SettingsToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     final isGX = GXThemeExtension.of(context).isGX;
     final accent = GXThemeExtension.of(context).accent;
-    final theme = Theme.of(context);
 
     if (isGX) {
       return GestureDetector(
@@ -538,7 +535,6 @@ class SettingsNavTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isGX = GXThemeExtension.of(context).isGX;
     final accent = GXThemeExtension.of(context).accent;
-    final theme = Theme.of(context);
 
     if (isGX) {
       return InkWell(

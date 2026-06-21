@@ -354,12 +354,22 @@ class _BlockedUserRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    user.username,
+                    user.displayNameOrUsername,
                     style: const TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFFF0F0F8),
+                    ),
+                  ),
+                  Text(
+                    user.usernameHandle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      color: Color(0xFF8888AA),
                     ),
                   ),
                   if (user.bio.trim().isNotEmpty)
@@ -414,8 +424,12 @@ class _BlockedUserRow extends StatelessWidget {
         avatarId: user.avatarId,
         imageUrl: user.profileImageUrl,
       ),
-      title: Text(user.username),
-      subtitle: Text(user.bio.trim().isEmpty ? 'Blocked' : user.bio.trim()),
+      title: Text(user.displayNameOrUsername),
+      subtitle: Text(
+        user.bio.trim().isEmpty
+            ? '${user.usernameHandle} - Blocked'
+            : '${user.usernameHandle} - ${user.bio.trim()}',
+      ),
       trailing: TextButton(
         onPressed: isSaving ? null : onUnblock,
         child: const Text('Unblock'),

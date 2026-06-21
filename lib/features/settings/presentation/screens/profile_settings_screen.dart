@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../common/widgets/app_avatar.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/app_error_helper.dart';
 import '../../../auth/domain/entities/app_user.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../widgets/avatar_picker_sheet.dart';
@@ -16,6 +17,8 @@ class ProfileSettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _displayNameController;
   late final TextEditingController _usernameController;
   late String _selectedAvatarId;
   late AppGender _selectedGender;
@@ -24,6 +27,9 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
   void initState() {
     super.initState();
     final profile = ref.read(authControllerProvider).profile;
+    _displayNameController = TextEditingController(
+      text: profile?.displayName ?? '',
+    );
     _usernameController = TextEditingController(text: profile?.username ?? '');
     _selectedGender = profile?.gender ?? AppGender.male;
     _selectedAvatarId = profile?.avatarId ?? _selectedGender.defaultAvatarId;
@@ -31,6 +37,7 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
 
   @override
   void dispose() {
+    _displayNameController.dispose();
     _usernameController.dispose();
     super.dispose();
   }
@@ -47,7 +54,8 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
     final canSave =
         !authState.isLoading &&
         _usernameController.text.trim().isNotEmpty &&
-        (_usernameController.text.trim() != profile.username ||
+        (_displayNameController.text != profile.displayName ||
+            _usernameController.text != profile.username ||
             _selectedAvatarId != profile.avatarId ||
             _selectedGender != profile.gender);
 
@@ -69,16 +77,16 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    _usernameController.text.trim().isEmpty
-                        ? profile.username
-                        : _usernameController.text.trim(),
+                    _displayNameController.text.trim().isEmpty
+                        ? profile.displayNameOrUsername
+                        : _displayNameController.text.trim(),
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    _selectedGender.label,
+                    '@${_usernameController.text.trim().isEmpty ? profile.username : _usernameController.text.trim()}',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 16),
@@ -95,9 +103,11 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
           Card(
             child: Padding(
               padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                   Text(
                     'Profile details',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -110,9 +120,23 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
                   ),
                   const SizedBox(height: 18),
                   TextField(
+                    controller: _displayNameController,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Display name',
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 18),
+                  TextFormField(
                     controller: _usernameController,
                     textInputAction: TextInputAction.done,
-                    decoration: const InputDecoration(labelText: 'Username'),
+                    validator: AppErrorHelper.usernameValidationMessage,
+                    decoration: const InputDecoration(
+                      labelText: 'Username',
+                      helperText:
+                          'Use lowercase letters, numbers, dots, and underscores.',
+                    ),
                     onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 18),
@@ -159,7 +183,8 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
                         : const Icon(Icons.save_outlined),
                     label: const Text('Save Changes'),
                   ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -190,10 +215,15 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
   }
 
   Future<void> _saveProfile() async {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
     await ref
         .read(authControllerProvider.notifier)
         .updateProfile(
-          username: _usernameController.text.trim(),
+          username: _usernameController.text,
+          displayName: _displayNameController.text,
           gender: _selectedGender,
           avatarId: _selectedAvatarId,
         );
@@ -207,6 +237,10 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Profile updated.')));
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(nextState.errorMessage!)));
     }
   }
 }

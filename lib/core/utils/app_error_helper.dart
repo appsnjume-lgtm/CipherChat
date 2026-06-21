@@ -81,9 +81,13 @@ class AppErrorHelper {
     String? value, {
     String label = 'Username',
   }) {
-    final username = value?.trim() ?? '';
+    final raw = value ?? '';
+    final username = raw.trim();
     if (username.isEmpty) {
       return '$label is required.';
+    }
+    if (raw != username) {
+      return '$label cannot start or end with spaces.';
     }
     if (username.length < 3) {
       return '$label must be at least 3 characters.';
@@ -91,8 +95,11 @@ class AppErrorHelper {
     if (username.length > 24) {
       return '$label must be 24 characters or fewer.';
     }
-    if (!RegExp(r'^[a-zA-Z0-9._]+$').hasMatch(username)) {
-      return '$label can use letters, numbers, dots, and underscores only.';
+    if (username != username.toLowerCase()) {
+      return '$label must use lowercase letters.';
+    }
+    if (!RegExp(r'^[a-z0-9._]+$').hasMatch(username)) {
+      return '$label can use lowercase letters, numbers, dots, and underscores only.';
     }
     return null;
   }
@@ -101,7 +108,7 @@ class AppErrorHelper {
     String? value, {
     String label = 'Username',
   }) {
-    final username = value?.trim() ?? '';
+    final username = value ?? '';
     if (username.isEmpty) {
       return null;
     }

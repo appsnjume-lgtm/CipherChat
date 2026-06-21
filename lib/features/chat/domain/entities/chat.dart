@@ -40,7 +40,7 @@ class Chat {
     }
 
     final participant = otherMemberFor(currentUserId);
-    return participant?.username ?? 'Direct chat';
+    return participant?.displayNameOrUsername ?? 'Direct chat';
   }
 
   String subtitleFor(String currentUserId) {
@@ -50,7 +50,7 @@ class Chat {
       }
 
       final names = members
-          .map((member) => member.username)
+          .map((member) => member.displayNameOrUsername)
           .whereType<String>()
           .take(3)
           .join(', ');
@@ -58,7 +58,10 @@ class Chat {
     }
 
     final participant = otherMemberFor(currentUserId);
-    return participant?.bioPreview ?? participant?.username ?? 'Unknown user';
+    return participant?.usernameHandle ??
+        participant?.bioPreview ??
+        participant?.displayNameOrUsername ??
+        'Unknown user';
   }
 
   String? avatarIdFor(String currentUserId) {

@@ -37,7 +37,6 @@ class MessagingSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isGX = GXThemeExtension.of(context).isGX;
-    final accent = GXThemeExtension.of(context).accent;
 
     return SettingsSectionCard(
       child: Column(

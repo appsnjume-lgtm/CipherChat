@@ -264,12 +264,9 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                             ),
                             children: [
                               Center(
-                                child: Text(
-                                  _emptyStateText(),
-                                  textAlign: TextAlign.center,
-                                  style: isGX
-                                      ? const TextStyle(fontFamily: 'monospace')
-                                      : null,
+                                child: _emptyStateContent(
+                                  allChats: chatListState.chats,
+                                  isGX: isGX,
                                 ),
                               ),
                             ],
@@ -591,22 +588,73 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         .toList(growable: false);
   }
 
-  String _emptyStateText() {
+  Widget _emptyStateContent({
+    required List<Chat> allChats,
+    required bool isGX,
+  }) {
+    final textStyle = isGX ? const TextStyle(fontFamily: 'monospace') : null;
+
     if (_searchQuery.trim().isNotEmpty) {
-      return 'No chats match your search yet.';
+      return Text(
+        'No chats match your search yet.',
+        textAlign: TextAlign.center,
+        style: textStyle,
+      );
     }
 
     if (_isSelectionMode) {
-      return widget.selectionConfig!.emptyStateText;
+      return Text(
+        widget.selectionConfig!.emptyStateText,
+        textAlign: TextAlign.center,
+        style: textStyle,
+      );
     }
 
     switch (_activeFilter) {
-      case _ChatListFilter.unread:
-        return 'No unread chats right now.';
-      case _ChatListFilter.groups:
-        return 'No group chats yet. Create one from the menu.';
       case _ChatListFilter.all:
-        return 'No chats yet. Start a secure conversation.';
+        return _EmptyChatListAction(
+          message: 'No chats yet. Start a secure conversation.',
+          buttonLabel: 'Find Friends',
+          icon: Icons.person_search_rounded,
+          textStyle: textStyle,
+          onPressed: () => context.push('/search'),
+        );
+      case _ChatListFilter.groups:
+        if (allChats.isEmpty) {
+          return _EmptyChatListAction(
+            message:
+                'No group chats yet. Add a friend to create a group chat with them.',
+            buttonLabel: 'Find Friends',
+            icon: Icons.person_search_rounded,
+            textStyle: textStyle,
+            onPressed: () => context.push('/search'),
+          );
+        }
+
+        return _EmptyChatListAction(
+          message: 'No group chats yet. Create a group to add friend.',
+          buttonLabel: 'Create Group',
+          icon: Icons.group_add_rounded,
+          textStyle: textStyle,
+          onPressed: _createGroupFromEmptyState,
+        );
+      case _ChatListFilter.unread:
+        return Text(
+          'No unread chats right now.',
+          textAlign: TextAlign.center,
+          style: textStyle,
+        );
+    }
+  }
+
+  Future<void> _createGroupFromEmptyState() async {
+    try {
+      final chat = await ref.read(chatActionsProvider).createGroup();
+      if (mounted) {
+        context.push('/group/${chat.id}');
+      }
+    } catch (error) {
+      _showSnackBar(AppErrorHelper.messageFor(error));
     }
   }
 
@@ -714,6 +762,41 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
       ..showSnackBar(
         SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
       );
+  }
+}
+
+class _EmptyChatListAction extends StatelessWidget {
+  const _EmptyChatListAction({
+    required this.message,
+    required this.buttonLabel,
+    required this.icon,
+    required this.onPressed,
+    this.textStyle,
+  });
+
+  final String message;
+  final String buttonLabel;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 320),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(message, textAlign: TextAlign.center, style: textStyle),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: onPressed,
+            icon: Icon(icon),
+            label: Text(buttonLabel),
+          ),
+        ],
+      ),
+    );
   }
 }
 

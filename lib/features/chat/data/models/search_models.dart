@@ -90,6 +90,7 @@ class GlobalContactSearchResult {
   const GlobalContactSearchResult({
     required this.userId,
     required this.username,
+    required this.displayName,
     required this.avatarId,
     required this.directChatId,
     required this.sharedChatCount,
@@ -98,6 +99,7 @@ class GlobalContactSearchResult {
 
   final String userId;
   final String username;
+  final String displayName;
   final String avatarId;
   final String? directChatId;
   final int sharedChatCount;
@@ -107,6 +109,7 @@ class GlobalContactSearchResult {
     return GlobalContactSearchResult(
       userId: map['user_id'] as String,
       username: map['username'] as String? ?? 'Unknown',
+      displayName: map['display_name'] as String? ?? map['username'] as String? ?? 'Unknown',
       avatarId: map['avatar_id'] as String? ?? 'avatar_1',
       directChatId: map['direct_chat_id'] as String?,
       sharedChatCount: (map['shared_chat_count'] as num?)?.toInt() ?? 0,

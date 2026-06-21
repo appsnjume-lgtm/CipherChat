@@ -17,7 +17,7 @@ class InviteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = request.chat?.titleFor(request.userId) ?? 'Group invite';
-    final inviter = request.requestedByUser?.username ?? 'Admin';
+    final inviter = request.requestedByUser?.displayNameOrUsername ?? 'Admin';
 
     return Card(
       child: Padding(

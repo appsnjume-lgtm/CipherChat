@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../../core/services/supabase_service.dart';
+import '../../../../core/utils/app_error_helper.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/repositories/sticker_repository.dart';
 import '../../domain/entities/sticker.dart';
@@ -153,7 +154,10 @@ class StickerLibraryController extends StateNotifier<StickerLibraryState> {
         clearError: true,
       );
     } catch (error) {
-      state = state.copyWith(isLoading: false, errorMessage: error.toString());
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: AppErrorHelper.messageFor(error),
+      );
     }
   }
 
@@ -278,7 +282,10 @@ class StickerLibraryController extends StateNotifier<StickerLibraryState> {
       );
       return merged;
     } catch (error) {
-      state = state.copyWith(isMutating: false, errorMessage: error.toString());
+      state = state.copyWith(
+        isMutating: false,
+        errorMessage: AppErrorHelper.messageFor(error),
+      );
       rethrow;
     }
   }
@@ -333,7 +340,10 @@ class StickerLibraryController extends StateNotifier<StickerLibraryState> {
         clearError: true,
       );
     } catch (error) {
-      state = state.copyWith(isMutating: false, errorMessage: error.toString());
+      state = state.copyWith(
+        isMutating: false,
+        errorMessage: AppErrorHelper.messageFor(error),
+      );
       rethrow;
     }
   }
@@ -361,7 +371,10 @@ class StickerLibraryController extends StateNotifier<StickerLibraryState> {
       );
       return merged;
     } catch (error) {
-      state = state.copyWith(isMutating: false, errorMessage: error.toString());
+      state = state.copyWith(
+        isMutating: false,
+        errorMessage: AppErrorHelper.messageFor(error),
+      );
       rethrow;
     }
   }

@@ -74,6 +74,7 @@ class ContactProfileScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(20),
                   children: [
                     ProfileHeader(
+                      displayName: data.user.displayNameOrUsername,
                       username: data.user.username,
                       statusLabel: _statusLabel(data),
                       imageUrl: data.user.profileImageUrl,
@@ -84,7 +85,7 @@ class ContactProfileScreen extends ConsumerWidget {
                         context,
                         imageUrl: data.user.profileImageUrl,
                         avatarId: data.user.avatarId,
-                        title: data.user.username,
+                        title: data.user.displayNameOrUsername,
                         heroTag: heroTag,
                       ),
                     ),
